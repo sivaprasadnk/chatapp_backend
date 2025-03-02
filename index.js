@@ -1,27 +1,39 @@
-const WebSocket = require('ws');
+const express = require('express');
+const http = require('http');
+const socketIO = require('socket.io');
 
-const PORT = process.env.PORT || 8080;
-const server = new WebSocket.Server({ port: PORT });
+const app = express();
+const server = http.createServer(app);
+const io = socketIO(server);
+const port = process.env.PORT || 3000;
 
-// const server = new WebSocket.Server({ port: 8080 });
+var clients = {};
 
-server.on('connection', (socket) => {
-    console.log('New client connected');
+app.get("/", (req, res) => {
+    res.send("Hello 🚀"); // Serve the HTML file
+});
 
-    socket.on('message', (message) => {
-        console.log(`Received: ${message}`);
-
-        // Broadcast message to all connected clients
-        server.clients.forEach((client) => {
-            if (client !== socket && client.readyState === WebSocket.OPEN) {
-                client.send(message);
-            }
-        });
+io.on('connection', (socket) => {
+    console.log(socket.id, '- connected');
+    socket.on("signin", (id) => {
+        clients[id] = socket;
+        console.log(clients);
     });
 
-    socket.on('close', () => {
-        console.log('Client disconnected');
+    socket.on('message', (message) => {
+        console.log('New message:', message);
+        let targetId = message.targetId;
+        if (clients[targetId]) {
+            clients[targetId].emit("message", message);
+        }
+        // io.emit('newMessage', message.id); // Send to everyone
+    });
+
+    socket.on('disconnect', () => {
+        console.log('User disconnected');
     });
 });
 
-console.log('WebSocket server running on ws://localhost:8080');
+server.listen(port, "0.0.0.0", () => {
+    console.log(`Server is up on port ${port} 🚀`);
+});
